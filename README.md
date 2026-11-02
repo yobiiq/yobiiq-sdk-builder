@@ -1,16 +1,65 @@
 # YOBIIQ KiBi SDK Builder
 
-Docker image providing a complete build environment for the YOBIIQ KiBi SDK, based on nRF Connect SDK v3.2.1.
+Docker images providing the build environment of the YOBIIQ KiBi SDK. There is one image per nRF Connect SDK (NCS) version, and the CI workflows of the SDK run in it.
 
 ## Overview
 
-This repository contains the Dockerfile and build infrastructure for creating containerized build environments for YOBIIQ KiBi SDK development. The image includes:
+Each image holds:
 
-- **nRF Connect SDK v3.2.1** - Nordic Semiconductor's SDK (installed via nrfutil)
-- **nrfutil toolchain-manager** - Official Nordic toolchain installer
-- **Zephyr SDK** - ARM toolchain and build tools (bundled)
-- **West tool** - Meta-tool for managing Zephyr projects (bundled)
-- **Build tools** - CMake, Ninja, Python, and all required dependencies
+- **NCS toolchain** - The toolchain bundle of one NCS version, installed with nrfutil toolchain-manager: Zephyr SDK, West, CMake, Ninja, Python and their dependencies
+- **nrfutil** and the **nRF Command Line Tools**
+- **Build tools** - GCC, ccache, lcov, Device Tree Compiler and Git
+
+The image does not hold the NCS sources. They come from the west manifest of the SDK, with `west update`.
+
+## Release Cycle
+
+The images follow the NCS releases, in step with the SDK releases. The image comes first, because the SDK workflows cannot run on an NCS version until its image exists:
+
+1. NCS publishes a version
+2. This repository publishes the image of that version
+3. The SDK moves its `west.yml` and workflows to that version and image
+4. The SDK releases on that version
+
+| Image | NCS | SDK release | Status |
+|-------|-----|-------------|--------|
+| `v3.2.1` | v3.2.1 | v1.0.0 | Published |
+| `v3.2.6` | v3.2.6 | v1.0.6 | Next |
+| `v3.5.x` | v3.5.x | v3.5.x | Planned |
+
+From NCS 3.5.x on, the SDK version is the same as the NCS version, so the image, NCS and SDK versions all match.
+
+### Publishing a New Image
+
+Change `NRF_CONNECT_SDK_VERSION` in `VERSION.txt` and merge it to `main`. It is the only place to change: the workflows take the toolchain version and the image tags from it. The workflow builds the image, verifies it holds the toolchain of that version, and only then publishes it.
+
+Then point the SDK workflows at the new exact tag.
+
+### Previews, Release Candidates and Older Versions
+
+To build a version other than the one in `VERSION.txt`, run the workflow by hand and leave `VERSION.txt` unchanged:
+
+1. Go to Actions, then "Build and Push Docker Image", then "Run workflow"
+2. Set the version, for example `v3.5.0-preview4` or `v3.5.0-rc1`
+
+These builds publish their exact tag only.
+
+## Available Tags
+
+| Tag | Description | Use Case |
+|-----|-------------|----------|
+| `v3.2.1` | Exact NCS version. Stays unchanged once published | CI and production builds, always pin this one |
+| `v3.5.0-preview4` | Exact NCS preview or release candidate | Trying the next NCS version |
+| `v3.2.1-2026-01` | Monthly rebuild of a version, with current base packages | Security updates for a specific version |
+| `v3.2` | Latest published version of that NCS minor | Development only, it moves |
+| `latest` | Latest published version | Development only, it moves |
+| `sha-abc123` | Git commit of this repository | Tracing an image to its sources |
+
+## Updating the Image
+
+- **New version** - A push to `main` that changes `VERSION.txt` publishes the new version
+- **Monthly** - On the 1st of each month, the version in `VERSION.txt` is rebuilt under a dated tag only, so the exact tag does not change. GitHub turns scheduled workflows off after 60 days without repository activity. Turn it back on with `gh workflow enable "Monthly Scheduled Build"`
+- **Replacing a published image** - A version that is already published is skipped, so editing the Dockerfile or a workflow leaves it alone. To replace it on purpose, for example after a Dockerfile fix, run "Build and Push Docker Image" by hand with `rebuild` enabled, knowing the SDK CI pinned to that tag changes with it
 
 ## Quick Start
 
@@ -32,21 +81,15 @@ docker run -it --rm ghcr.io/yobiiq/yobiiq-sdk-builder:v3.2.1
 # Inside the container, the environment is automatically loaded
 cd /workspace
 git clone https://github.com/yobiiq/yobiiq-sdk.git
+west init -l yobiiq-sdk
+west update
 cd yobiiq-sdk
-west build -b nrf52840dk_nrf52840 samples/hello_world
+west build -b lpwm10lrw/nrf54l15/cpuapp samples/iq_lrw/generic
 ```
 
-> **Note**: The nRF Connect SDK environment variables are automatically sourced when you start the container.
+Add your ECDSA P-256 signing key as `samples/iq_lrw/generic/keys/signing_key.pem` first: the SDK ships no signing keys. Use the image of the NCS version in the `west.yml` of the SDK.
 
-## Available Tags
-
-| Tag | Description | Use Case |
-|-----|-------------|----------|
-| `v3.2.1` | Specific nRF SDK version | Production builds - recommended |
-| `v3.2` | Major.minor version | Patch updates without breaking changes |
-| `v3.2.1-2026-01` | Monthly rebuild | Security updates for specific version |
-| `latest` | Latest build | Development only |
-| `sha-abc123` | Git commit SHA | Reproducible builds |
+> **Note**: An interactive shell loads the environment by itself. A non-interactive shell, such as a CI step, has to run `source /opt/ncs_env.sh` first.
 
 ## Using in CI/CD
 
@@ -61,17 +104,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build SDK
+        shell: bash
         run: |
-          west build -b nrf52840dk_nrf52840 samples/hello_world
-```
-
-### GitLab CI
-
-```yaml
-build:
-  image: ghcr.io/yobiiq/yobiiq-sdk-builder:v3.2.1
-  script:
-    - west build -b nrf52840dk_nrf52840 samples/hello_world
+          source /opt/ncs_env.sh
+          west --version
 ```
 
 ## Local Development
@@ -81,7 +117,6 @@ build:
 Create `docker-compose.yml`:
 
 ```yaml
-version: '3.8'
 services:
   builder:
     image: ghcr.io/yobiiq/yobiiq-sdk-builder:v3.2.1
@@ -93,7 +128,7 @@ services:
 
 Run:
 ```bash
-docker-compose run --rm builder
+docker compose run --rm builder
 ```
 
 ### VS Code Dev Container
@@ -105,9 +140,7 @@ Create `.devcontainer/devcontainer.json`:
   "name": "YOBIIQ SDK Development",
   "image": "ghcr.io/yobiiq/yobiiq-sdk-builder:v3.2.1",
   "workspaceFolder": "/workspace",
-  "mounts": [
-    "source=${localWorkspaceFolder},target=/workspace,type=bind"
-  ]
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind"
 }
 ```
 
@@ -117,85 +150,50 @@ Create `.devcontainer/devcontainer.json`:
 
 - Docker installed and running
 - At least 20 GB of free disk space
-- Good internet connection (initial build downloads ~5 GB)
+- Good internet connection
 
 ### Build Command
 
 ```bash
-cd yobiiq-sdk-builder
-chmod +x scripts/build-local.sh
-./scripts/build-local.sh v3.2.1
+# The version in VERSION.txt
+./scripts/build-local.sh
+
+# Another version
+./scripts/build-local.sh v3.2.6
 ```
 
-Or manually:
-
-```bash
-docker build -t yobiiq-sdk-builder:v3.2.1 .
-```
+The script builds the image with `--build-arg NCS_VERSION=<version>`, which the Dockerfile requires, and verifies it. It does not publish anything: the workflows do.
 
 ## Verification
 
-Verify the image is properly configured:
-
 ```bash
-chmod +x scripts/verify-image.sh
+# Against the version in VERSION.txt
 ./scripts/verify-image.sh ghcr.io/yobiiq/yobiiq-sdk-builder:v3.2.1
+
+# Against another version
+./scripts/verify-image.sh ghcr.io/yobiiq/yobiiq-sdk-builder:v3.2.6 v3.2.6
 ```
 
-This will check:
-- All required tools are installed
-- Environment variables are set correctly
-- nRF Connect SDK is accessible
-- A sample application can be built
+This checks that the required tools run, that the environment variables are set, and that the installed toolchain is the one of the expected NCS version. The workflows run the same script before publishing.
 
 ## What's Inside
 
-### Installed Tools
+| Path | Content |
+|------|---------|
+| `/opt/ncs/toolchains/<bundle>/` | Toolchain bundle, with the Zephyr SDK in `opt/zephyr-sdk` |
+| `/opt/ncs/toolchains/toolchains.json` | NCS version of the installed toolchain |
+| `/opt/ncs_env.sh` | Script that loads the toolchain environment |
+| `/workspace` | Working directory |
 
-- **West** - Zephyr meta-tool
-- **CMake 3.x** - Build system generator
-- **Ninja** - Fast build system
-- **Python 3** - With all required packages
-- **ARM GCC** - Cross-compilation toolchain
-- **Git** - Version control
-- **Device Tree Compiler** - For hardware descriptions
+Environment variables set by `/opt/ncs_env.sh` include `ZEPHYR_SDK_INSTALL_DIR` and `ZEPHYR_TOOLCHAIN_VARIANT`. `NCS_INSTALL_DIR` is `/opt/ncs`.
 
-### Directory Structure
-
-```
-/workdir/                    # Main workspace
-├── nrf/                     # nRF Connect SDK
-│   ├── zephyr/             # Zephyr RTOS
-│   ├── nrf/                # Nordic modules
-│   └── ...                 # Other dependencies
-/opt/zephyr-sdk-0.16.5/     # Zephyr SDK (toolchain)
-```
-
-### Environment Variables
-
-- `ZEPHYR_BASE=/workdir/nrf/zephyr`
-- `ZEPHYR_SDK_INSTALL_DIR=/opt/zephyr-sdk-0.16.5`
-- `WORKSPACE_DIR=/workdir`
-
-## Updating the Image
-
-The image is automatically rebuilt:
-- **Monthly** - On the 1st of each month (security updates)
-- **On-demand** - Via GitHub Actions workflow dispatch
-- **On changes** - When Dockerfile or VERSION.txt is updated
-
-### Triggering a Manual Build
-
-1. Go to the repository on GitHub
-2. Navigate to Actions → "Build and Push Docker Image"
-3. Click "Run workflow"
-4. Select branch and optionally specify version
+The container runs as `root`.
 
 ## Troubleshooting
 
 ### Image is too large
 
-The image is typically 8-15 GB due to the full SDK. This is normal for embedded development environments.
+The image is about 7.5 GB because of the full toolchain. This is normal for embedded development environments.
 
 ### Build fails with "No space left on device"
 
@@ -204,36 +202,21 @@ Ensure you have at least 20 GB free disk space. Clean up Docker:
 docker system prune -a
 ```
 
-### Permission denied errors
+### `nrfutil toolchain-manager` is not found
 
-The container runs as user `builder` (non-root). If you need root access:
-```bash
-docker run -it --user root ghcr.io/yobiiq/yobiiq-sdk-builder:v3.2.1
-```
-
-### West update fails
-
-The image includes a shallow clone of nRF SDK. For full history:
-```bash
-cd /workdir/nrf
-west update --narrow=false
-```
+The command is not available once the toolchain environment is loaded, because the environment puts the nrfutil of the bundle first on `PATH`. To read the installed version, use `/opt/ncs/toolchains/toolchains.json`.
 
 ## Version History
 
-| Version | nRF SDK | Zephyr SDK | Release Date |
-|---------|---------|------------|--------------|
-| v3.2.1  | v3.2.1  | 0.16.5     | 2026-01-22   |
+| Version | NCS | Zephyr SDK | Release Date |
+|---------|-----|------------|--------------|
+| v3.2.1  | v3.2.1 | 0.17.0 | 2026-01-22 |
+
+See [CHANGELOG.md](CHANGELOG.md) for the changes.
 
 ## Contributing
 
-Contributions are welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test the Docker image builds successfully
-5. Submit a pull request
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
@@ -250,14 +233,4 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 For issues related to:
 - **Docker image** - Open an issue in this repository
 - **YOBIIQ SDK** - See the [SDK repository](https://github.com/yobiiq/yobiiq-sdk)
-- **nRF Connect SDK** - See [Nordic's documentation](https://developer.nordicsemi.com/)
-
-## Changelog
-
-### v3.2.1 (2026-01-22)
-- Initial release
-- nRF Connect SDK v3.2.1
-- Zephyr SDK 0.16.5
-- Ubuntu 22.04 base
-- Monthly automated rebuilds
-- Multi-tag support
+- **nRF Connect SDK** - See [Nordic's documentation](https://docs.nordicsemi.com/)

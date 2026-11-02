@@ -25,17 +25,12 @@ Thank you for your interest in contributing to the YOBIIQ SDK Builder project!
 
 Before submitting a PR, please:
 
-1. Build the image locally:
+1. Build and verify the image locally:
    ```bash
    ./scripts/build-local.sh
    ```
 
-2. Run verification tests:
-   ```bash
-   ./scripts/verify-image.sh yobiiq-sdk-builder:latest
-   ```
-
-3. Test building a sample application
+2. Test building a sample application
 
 ## Code Style
 
