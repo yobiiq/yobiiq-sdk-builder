@@ -82,11 +82,16 @@ jobs:
           REBUILD: ${{ inputs.rebuild }}
         run: |
           # An exact version tag is what the SDK workflows pin: never replace it by accident
-          if [[ "${REBUILD}" != "true" ]] && docker manifest inspect "${IMAGE}" > /dev/null 2>&1; then
+          if [[ "${REBUILD}" == "true" ]]; then
+            echo "skip=false" >> $GITHUB_OUTPUT
+          elif output=$(docker manifest inspect "${IMAGE}" 2>&1); then
             echo "${IMAGE} is already published, nothing to do. Run the workflow by hand with rebuild to replace it." >> $GITHUB_STEP_SUMMARY
             echo "skip=true" >> $GITHUB_OUTPUT
-          else
+          elif [[ "${output}" == *"manifest unknown"* ]]; then
             echo "skip=false" >> $GITHUB_OUTPUT
+          else
+            echo "Cannot tell whether ${IMAGE} is published: ${output}"
+            exit 1
           fi
 
       - name: Extract metadata for Docker
