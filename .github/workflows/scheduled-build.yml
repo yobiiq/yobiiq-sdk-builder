@@ -61,13 +61,13 @@ jobs:
             type=raw,value=${{ steps.version.outputs.major_minor }}
             type=raw,value=latest
       
-      - name: Build and push Docker image
+      - name: Build Docker image
         uses: docker/build-push-action@v5
         timeout-minutes: 120
         with:
           context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          load: true
+          tags: ${{ steps.repo.outputs.image_name }}:verify
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -76,25 +76,25 @@ jobs:
             NCS_VERSION=${{ steps.version.outputs.ncs_version }}
             BUILDKIT_INLINE_CACHE=1
             PIP_NO_CACHE_DIR=1
-      
+
       - name: Run image verification
-        run: |
-          echo "Pulling image for verification..."
-          docker pull ${{ env.REGISTRY }}/${{ steps.repo.outputs.image_name }}:${{ steps.version.outputs.date_tag }}
-          
-          echo "Running verification tests..."
-          docker run --rm ${{ env.REGISTRY }}/${{ steps.repo.outputs.image_name }}:${{ steps.version.outputs.date_tag }} /bin/bash -c "
-            source /opt/ncs_env.sh
-            set -e
-            echo '=== Scheduled Build Verification ==='
-            nrfutil --version
-            west --version
-            cmake --version
-            python3 --version
-            arm-zephyr-eabi-gcc --version | head -n1
-            echo '=== Verification Complete ==='
-          "
-      
+        run: ./scripts/verify-image.sh "${{ steps.repo.outputs.image_name }}:verify" "${{ steps.version.outputs.ncs_version }}"
+
+      - name: Push Docker image
+        uses: docker/build-push-action@v5
+        timeout-minutes: 120
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          platforms: linux/amd64
+          build-args: |
+            NCS_VERSION=${{ steps.version.outputs.ncs_version }}
+            BUILDKIT_INLINE_CACHE=1
+            PIP_NO_CACHE_DIR=1
+
       - name: Create summary
         run: |
           echo "## Monthly Build Completed :calendar:" >> $GITHUB_STEP_SUMMARY
