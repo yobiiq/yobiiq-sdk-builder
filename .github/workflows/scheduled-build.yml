@@ -75,19 +75,15 @@ jobs:
         run: ./scripts/verify-image.sh "${{ steps.repo.outputs.image_name }}:verify" "${{ steps.version.outputs.ncs_version }}"
 
       - name: Push Docker image
-        uses: docker/build-push-action@v5
-        timeout-minutes: 120
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          platforms: linux/amd64
-          build-args: |
-            NCS_VERSION=${{ steps.version.outputs.ncs_version }}
-            BUILDKIT_INLINE_CACHE=1
-            PIP_NO_CACHE_DIR=1
+        env:
+          VERIFIED_IMAGE: ${{ steps.repo.outputs.image_name }}:verify
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          # Push the image that passed verification, never a second build of it
+          for tag in ${TAGS}; do
+            docker tag "${VERIFIED_IMAGE}" "${tag}"
+            docker push "${tag}"
+          done
 
       - name: Create summary
         run: |
