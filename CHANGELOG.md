@@ -5,9 +5,10 @@ All notable changes to the YOBIIQ SDK Builder will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [v3.2.6] - 2026-11-02
 
 ### Changed
+- nRF Connect SDK v3.2.6
 - The toolchain version and the image tags both come from `NRF_CONNECT_SDK_VERSION` in `VERSION.txt`
 - The manual build takes the version to build, so previews, release candidates and older versions can be built
 - Images are verified before they are published, including the version of the installed toolchain
@@ -50,4 +51,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docker layer caching for faster builds
 - Automated verification tests
 
+[v3.2.6]: https://github.com/yobiiq/yobiiq-sdk-builder/releases/tag/v3.2.6
 [v3.2.1]: https://github.com/yobiiq/yobiiq-sdk-builder/releases/tag/v3.2.1

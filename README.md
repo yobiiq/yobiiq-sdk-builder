@@ -24,7 +24,7 @@ The images follow the NCS releases, in step with the SDK releases. The image com
 | Image | NCS | SDK release | Status |
 |-------|-----|-------------|--------|
 | `v3.2.1` | v3.2.1 | v1.0.0 | Published |
-| `v3.2.6` | v3.2.6 | v1.0.6 | Next |
+| `v3.2.6` | v3.2.6 | v1.0.6 | Published |
 | `v3.5.x` | v3.5.x | v3.5.x | Planned |
 
 From NCS 3.5.x on, the SDK version is the same as the NCS version, so the image, NCS and SDK versions all match.
@@ -48,9 +48,9 @@ These builds publish their exact tag only.
 
 | Tag | Description | Use Case |
 |-----|-------------|----------|
-| `v3.2.1` | Exact NCS version. Stays unchanged once published | CI and production builds, always pin this one |
+| `v3.2.6` | Exact NCS version. Stays unchanged once published | CI and production builds, always pin this one |
 | `v3.5.0-preview4` | Exact NCS preview or release candidate | Trying the next NCS version |
-| `v3.2.1-2026-01` | Monthly rebuild of a version, with current base packages | Security updates for a specific version |
+| `v3.2.6-2026-12` | Monthly rebuild of a version, with current base packages | Security updates for a specific version |
 | `v3.2` | Latest published version of that NCS minor | Development only, it moves |
 | `latest` | Latest published version | Development only, it moves |
 | `sha-abc123` | Git commit of this repository | Tracing an image to its sources |
@@ -66,13 +66,13 @@ These builds publish their exact tag only.
 ### Pull the Pre-built Image
 
 ```bash
-docker pull ghcr.io/yobiiq/yobiiq-sdk-builder:v3.2.1
+docker pull ghcr.io/yobiiq/yobiiq-sdk-builder:v3.2.6
 ```
 
 ### Run the Container
 
 ```bash
-docker run -it --rm ghcr.io/yobiiq/yobiiq-sdk-builder:v3.2.1
+docker run -it --rm ghcr.io/yobiiq/yobiiq-sdk-builder:v3.2.6
 ```
 
 ### Build Your Project
@@ -100,7 +100,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/yobiiq/yobiiq-sdk-builder:v3.2.1
+      image: ghcr.io/yobiiq/yobiiq-sdk-builder:v3.2.6
     steps:
       - uses: actions/checkout@v4
       - name: Build SDK
@@ -119,7 +119,7 @@ Create `docker-compose.yml`:
 ```yaml
 services:
   builder:
-    image: ghcr.io/yobiiq/yobiiq-sdk-builder:v3.2.1
+    image: ghcr.io/yobiiq/yobiiq-sdk-builder:v3.2.6
     volumes:
       - ./:/workspace
     working_dir: /workspace
@@ -138,7 +138,7 @@ Create `.devcontainer/devcontainer.json`:
 ```json
 {
   "name": "YOBIIQ SDK Development",
-  "image": "ghcr.io/yobiiq/yobiiq-sdk-builder:v3.2.1",
+  "image": "ghcr.io/yobiiq/yobiiq-sdk-builder:v3.2.6",
   "workspaceFolder": "/workspace",
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind"
 }
@@ -159,7 +159,7 @@ Create `.devcontainer/devcontainer.json`:
 ./scripts/build-local.sh
 
 # Another version
-./scripts/build-local.sh v3.2.6
+./scripts/build-local.sh v3.2.1
 ```
 
 The script builds the image with `--build-arg NCS_VERSION=<version>`, which the Dockerfile requires, and verifies it. It does not publish anything: the workflows do.
@@ -168,10 +168,10 @@ The script builds the image with `--build-arg NCS_VERSION=<version>`, which the 
 
 ```bash
 # Against the version in VERSION.txt
-./scripts/verify-image.sh ghcr.io/yobiiq/yobiiq-sdk-builder:v3.2.1
+./scripts/verify-image.sh ghcr.io/yobiiq/yobiiq-sdk-builder:v3.2.6
 
 # Against another version
-./scripts/verify-image.sh ghcr.io/yobiiq/yobiiq-sdk-builder:v3.2.6 v3.2.6
+./scripts/verify-image.sh ghcr.io/yobiiq/yobiiq-sdk-builder:v3.2.1 v3.2.1
 ```
 
 This checks that the required tools run, that the environment variables are set, and that the installed toolchain is the one of the expected NCS version. The workflows run the same script before publishing.
@@ -211,6 +211,7 @@ The command is not available once the toolchain environment is loaded, because t
 | Version | NCS | Zephyr SDK | Release Date |
 |---------|-----|------------|--------------|
 | v3.2.1  | v3.2.1 | 0.17.0 | 2026-01-22 |
+| v3.2.6  | v3.2.6 | 0.17.0 | 2026-11-02 |
 
 See [CHANGELOG.md](CHANGELOG.md) for the changes.
 
