@@ -7,6 +7,11 @@ on:
         description: 'NCS version to build (e.g., v3.5.0-preview4), empty for VERSION.txt'
         required: false
         default: ''
+      rebuild:
+        description: 'Replace an exact version tag that is already published'
+        type: boolean
+        required: false
+        default: false
   push:
     branches:
       - main
@@ -70,7 +75,22 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       
+      - name: Check whether the version is already published
+        id: published
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ steps.repo.outputs.image_name }}:${{ steps.version.outputs.image_tag }}
+          REBUILD: ${{ inputs.rebuild }}
+        run: |
+          # An exact version tag is what the SDK workflows pin: never replace it by accident
+          if [[ "${REBUILD}" != "true" ]] && docker manifest inspect "${IMAGE}" > /dev/null 2>&1; then
+            echo "${IMAGE} is already published, nothing to do. Run the workflow by hand with rebuild to replace it." >> $GITHUB_STEP_SUMMARY
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Extract metadata for Docker
+        if: steps.published.outputs.skip != 'true'
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -82,6 +102,7 @@ jobs:
             type=sha,prefix=sha-,enable=${{ steps.version.outputs.moving_tags }}
       
       - name: Build Docker image
+        if: steps.published.outputs.skip != 'true'
         uses: docker/build-push-action@v5
         timeout-minutes: 120
         with:
@@ -98,9 +119,11 @@ jobs:
             PIP_NO_CACHE_DIR=1
 
       - name: Run image verification
+        if: steps.published.outputs.skip != 'true'
         run: ./scripts/verify-image.sh "${{ steps.repo.outputs.image_name }}:verify" "${{ steps.version.outputs.ncs_version }}"
 
       - name: Push Docker image
+        if: steps.published.outputs.skip != 'true'
         uses: docker/build-push-action@v5
         timeout-minutes: 120
         with:
@@ -116,6 +139,7 @@ jobs:
             PIP_NO_CACHE_DIR=1
 
       - name: Create summary
+        if: steps.published.outputs.skip != 'true'
         run: |
           echo "## Docker Image Built Successfully :rocket:" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
