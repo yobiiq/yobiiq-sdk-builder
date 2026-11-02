@@ -7,7 +7,7 @@
 set -e
 
 # Default values
-VERSION="${1:-v3.2.1}"
+VERSION="${1:-$(grep NRF_CONNECT_SDK_VERSION "$(dirname "$0")/../VERSION.txt" | cut -d'=' -f2)}"
 IMAGE_NAME="yobiiq-sdk-builder"
 REGISTRY="${REGISTRY:-ghcr.io/yobiiq}"
 
@@ -23,6 +23,7 @@ MAJOR_MINOR=$(echo ${VERSION} | sed -E 's/(v[0-9]+\.[0-9]+).*/\1/')
 
 echo "[1/3] Building Docker image..."
 docker build \
+  --build-arg "NCS_VERSION=${VERSION}" \
   --tag "${REGISTRY}/${IMAGE_NAME}:${VERSION}" \
   --tag "${REGISTRY}/${IMAGE_NAME}:${MAJOR_MINOR}" \
   --tag "${REGISTRY}/${IMAGE_NAME}:latest" \

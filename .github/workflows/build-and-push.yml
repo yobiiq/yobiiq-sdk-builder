@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       tag_version:
-        description: 'Version tag (e.g., v3.2.1)'
+        description: 'NCS version to build (e.g., v3.5.0-preview4), empty for VERSION.txt'
         required: false
-        default: 'v3.2.1'
+        default: ''
   push:
     branches:
       - main
@@ -39,8 +39,21 @@ jobs:
       
       - name: Read version from VERSION.txt
         id: version
+        env:
+          TAG_VERSION: ${{ inputs.tag_version }}
         run: |
-          NCS_VERSION=$(grep NRF_CONNECT_SDK_VERSION VERSION.txt | cut -d'=' -f2)
+          FILE_VERSION=$(grep NRF_CONNECT_SDK_VERSION VERSION.txt | cut -d'=' -f2)
+          NCS_VERSION="${TAG_VERSION:-$FILE_VERSION}"
+          if ! [[ "${NCS_VERSION}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid NCS version: ${NCS_VERSION}"
+            exit 1
+          fi
+          # Only a released version from VERSION.txt moves the tags shared between builds
+          if [[ "${NCS_VERSION}" == "${FILE_VERSION}" && "${NCS_VERSION}" != *-* ]]; then
+            echo "moving_tags=true" >> $GITHUB_OUTPUT
+          else
+            echo "moving_tags=false" >> $GITHUB_OUTPUT
+          fi
           echo "ncs_version=${NCS_VERSION}" >> $GITHUB_OUTPUT
           echo "image_tag=${NCS_VERSION}" >> $GITHUB_OUTPUT
           # Extract major.minor version (e.g., v3.2 from v3.2.1)
@@ -64,9 +77,9 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ steps.repo.outputs.image_name }}
           tags: |
             type=raw,value=${{ steps.version.outputs.image_tag }}
-            type=raw,value=${{ steps.version.outputs.major_minor }}
-            type=raw,value=latest
-            type=sha,prefix=sha-
+            type=raw,value=${{ steps.version.outputs.major_minor }},enable=${{ steps.version.outputs.moving_tags }}
+            type=raw,value=latest,enable=${{ steps.version.outputs.moving_tags }}
+            type=sha,prefix=sha-,enable=${{ steps.version.outputs.moving_tags }}
       
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
@@ -80,6 +93,7 @@ jobs:
           cache-to: type=gha,mode=max
           platforms: linux/amd64
           build-args: |
+            NCS_VERSION=${{ steps.version.outputs.ncs_version }}
             BUILDKIT_INLINE_CACHE=1
             PIP_NO_CACHE_DIR=1
       

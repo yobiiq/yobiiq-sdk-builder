@@ -73,6 +73,7 @@ jobs:
           cache-to: type=gha,mode=max
           platforms: linux/amd64
           build-args: |
+            NCS_VERSION=${{ steps.version.outputs.ncs_version }}
             BUILDKIT_INLINE_CACHE=1
             PIP_NO_CACHE_DIR=1
       

@@ -1,14 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # Dockerfile for YOBIIQ KiBi SDK Build Environment
-# Based on nRF Connect SDK v3.2.1 using nrfutil toolchain-manager
+# Installs the nRF Connect SDK toolchain of the NCS_VERSION build argument using nrfutil
+# toolchain-manager. The workflows and scripts/build-local.sh pass it from VERSION.txt.
 #
 
 FROM ubuntu:22.04
 
 LABEL org.opencontainers.image.title="YOBIIQ KiBi SDK Builder"
-LABEL org.opencontainers.image.description="Build environment for YOBIIQ KiBi SDK with nRF Connect SDK v3.2.1"
-LABEL org.opencontainers.image.version="3.2.1"
 LABEL org.opencontainers.image.vendor="YOBIIQ"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/yobiiq/yobiiq-sdk-builder"
@@ -55,10 +54,14 @@ RUN wget -q "https://files.nordicsemi.com/ui/api/v1/download?repoKey=swtools&pat
     && chmod +x /usr/local/bin/nrfutil
 
 # Install toolchain-manager and the nRF Connect SDK toolchain
-ARG NCS_VERSION=v3.2.1
+ARG NCS_VERSION
 ARG INSTALL_DIR=/opt/ncs
-RUN nrfutil install toolchain-manager \
+RUN test -n "${NCS_VERSION}" \
+    && nrfutil install toolchain-manager \
     && nrfutil toolchain-manager install --ncs-version ${NCS_VERSION} --install-dir ${INSTALL_DIR}
+
+LABEL org.opencontainers.image.description="Build environment for YOBIIQ KiBi SDK with nRF Connect SDK ${NCS_VERSION}"
+LABEL org.opencontainers.image.version="${NCS_VERSION}"
 
 # Get the toolchain environment dynamically
 # This creates a script that sets all necessary environment variables
