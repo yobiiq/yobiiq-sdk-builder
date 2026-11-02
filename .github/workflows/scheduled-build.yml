@@ -61,10 +61,11 @@ jobs:
         with:
           context: .
           load: true
+          # A rebuild from cached layers would not pick up any update
+          no-cache: true
+          pull: true
           tags: ${{ steps.repo.outputs.image_name }}:verify
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
           platforms: linux/amd64
           build-args: |
             NCS_VERSION=${{ steps.version.outputs.ncs_version }}
