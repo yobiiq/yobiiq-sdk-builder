@@ -211,7 +211,7 @@ The command is not available once the toolchain environment is loaded, because t
 | Version | NCS | Zephyr SDK | Release Date |
 |---------|-----|------------|--------------|
 | v3.2.1  | v3.2.1 | 0.17.0 | 2026-01-22 |
-| v3.2.6  | v3.2.6 | 0.17.0 | 2026-11-02 |
+| v3.2.6  | v3.2.6 | 0.17.0 | 2026-11-03 |
 
 See [CHANGELOG.md](CHANGELOG.md) for the changes.
 
